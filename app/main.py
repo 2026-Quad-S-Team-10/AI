@@ -11,6 +11,15 @@ app = FastAPI(
 app.include_router(news_generate_router)
 
 
+@app.get("/", tags=["Root"])
+def root() -> dict[str, str]:
+    return {
+        "message": "QuadS AI Server is running.",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health", tags=["Health"])
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
