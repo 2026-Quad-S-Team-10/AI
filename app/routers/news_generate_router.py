@@ -14,6 +14,11 @@ router = APIRouter(prefix="/ai/news", tags=["AI News"])
     "/generate",
     response_model=NewsGenerateResponse,
     summary="뉴스 요약 및 퀴즈 생성",
+    responses={
+        400: {"description": "Invalid request or empty news content"},
+        404: {"description": "No news found for the requested term/category"},
+        500: {"description": "OpenAI call or GPT response parsing failed"},
+    },
 )
 def generate_news(request: NewsGenerateRequest) -> NewsGenerateResponse:
     try:
