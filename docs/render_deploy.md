@@ -168,7 +168,7 @@ curl -X POST "https://your-service-name.onrender.com/ai/news/generate" \
 - `200 OK`
 - `term`, `newsTitle`, `newsUrl`, `summary`, `keywordExplanation`, `quiz` 포함
 - `summary`는 3개 문장 배열
-- `quiz`에는 OX와 객관식 문제가 포함될 수 있음
+- `quiz`에는 OX 문제가 정확히 3개 포함됨
 
 OpenAI API 호출이 포함되므로 응답까지 시간이 걸릴 수 있다.
 

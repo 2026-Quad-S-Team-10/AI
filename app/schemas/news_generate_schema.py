@@ -75,6 +75,18 @@ class NewsGenerateResponse(BaseModel):
                         "question": "수요는 사람들이 상품이나 서비스를 사고자 하는 욕구를 의미한다.",
                         "answer": "O",
                         "explanation": "수요는 구매하고자 하는 의사와 필요를 뜻합니다.",
+                    },
+                    {
+                        "type": "OX",
+                        "question": "이 뉴스에서 수요는 자금이 필요한 상황과 연결된다.",
+                        "answer": "O",
+                        "explanation": "기사에서는 자금 필요와 금융 지원을 다루고 있습니다.",
+                    },
+                    {
+                        "type": "OX",
+                        "question": "뉴스 본문에 없는 내용도 정답 근거로 사용할 수 있다.",
+                        "answer": "X",
+                        "explanation": "퀴즈는 뉴스 본문에 있는 내용만 근거로 해야 합니다.",
                     }
                 ],
             }

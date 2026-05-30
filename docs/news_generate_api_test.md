@@ -45,7 +45,7 @@ uvicorn app.main:app --reload
 - `summary`는 문자열 3개를 가진 배열이다.
 - `keywordExplanation`은 비어 있지 않은 문자열이다.
 - `quiz`는 배열이며 각 문제에 `type`, `question`, `answer`, `explanation`이 포함된다.
-- `MULTIPLE_CHOICE` 문제에는 `options` 4개가 포함되고 `answer`는 options 중 하나와 정확히 일치한다.
+- `quiz`는 OX 문제만 정확히 3개 포함한다.
 
 ### category 포함
 
@@ -88,16 +88,16 @@ uvicorn app.main:app --reload
       "explanation": "수요는 어떤 것을 필요로 하거나 구매하려는 의사를 뜻합니다."
     },
     {
-      "type": "MULTIPLE_CHOICE",
-      "question": "기사에서 중소기업의 자금 수요와 가장 관련 있는 내용은?",
-      "options": [
-        "자금 조달 부담을 줄이기 위한 금융 지원",
-        "소비자의 구매 감소",
-        "세금 폐지",
-        "수출의 완전 중단"
-      ],
-      "answer": "자금 조달 부담을 줄이기 위한 금융 지원",
+      "type": "OX",
+      "question": "기사에서 중소기업의 자금 수요는 금융 지원과 관련이 있다.",
+      "answer": "O",
       "explanation": "기사에서는 중소기업의 자금 부담을 낮추기 위한 지원 프로그램을 설명합니다."
+    },
+    {
+      "type": "OX",
+      "question": "뉴스 본문에 없는 내용도 정답 근거로 사용할 수 있다.",
+      "answer": "X",
+      "explanation": "퀴즈는 뉴스 본문에 있는 내용만 근거로 만들어야 합니다."
     }
   ]
 }
@@ -240,11 +240,10 @@ type NewsGenerateResponse = {
   summary: string[];
   keywordExplanation: string;
   quiz: Array<{
-    type: "OX" | "MULTIPLE_CHOICE";
+    type: "OX";
     question: string;
     answer: string;
     explanation: string;
-    options?: string[];
   }>;
 };
 ```
@@ -262,8 +261,8 @@ type NewsGenerateResponse = {
 - [ ] 정상 요청 시 `200 OK`가 반환된다.
 - [ ] `summary` 배열 길이가 3이다.
 - [ ] `keywordExplanation`이 비어 있지 않다.
-- [ ] `quiz` 배열에 OX와 객관식 문제가 포함된다.
-- [ ] 객관식 `answer`가 `options` 중 하나와 정확히 일치한다.
+- [ ] `quiz` 배열에 OX 문제가 정확히 3개 포함된다.
+- [ ] 모든 퀴즈의 `answer`가 `O` 또는 `X`이다.
 - [ ] 없는 term 요청 시 404가 반환된다.
 - [ ] 잘못된 difficulty 요청 시 422가 반환된다.
 - [ ] OpenAI API Key 누락 시 명확한 500 에러가 반환된다.

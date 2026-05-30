@@ -73,22 +73,16 @@ application/json
 | `pubDate` | `string \| null` | 뉴스 발행일 |
 | `summary` | `string[]` | GPT가 생성한 3줄 요약. 정확히 3개 문장을 기대한다. |
 | `keywordExplanation` | `string` | 경제 용어가 뉴스에서 어떻게 쓰였는지에 대한 쉬운 설명 |
-| `quiz` | `object[]` | 학습용 퀴즈 배열 |
+| `quiz` | `object[]` | 학습용 OX 퀴즈 배열. 정확히 3개 문항을 기대한다. |
 
 `quiz` 항목 공통 필드:
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `type` | `"OX" \| "MULTIPLE_CHOICE"` | 퀴즈 유형 |
+| `type` | `"OX"` | 퀴즈 유형 |
 | `question` | `string` | 문제 |
 | `answer` | `string` | 정답 |
 | `explanation` | `string` | 해설 |
-
-`MULTIPLE_CHOICE` 추가 필드:
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `options` | `string[]` | 객관식 보기. 4개 항목을 기대한다. |
 
 응답 예시:
 
@@ -115,16 +109,16 @@ application/json
       "explanation": "수요는 구매하고자 하는 의사와 필요를 뜻합니다."
     },
     {
-      "type": "MULTIPLE_CHOICE",
-      "question": "기사에서 수요와 가장 관련 있는 내용은 무엇인가요?",
-      "options": [
-        "자금이 필요한 기업이 늘어난 상황",
-        "가격이 완전히 사라진 상황",
-        "소비자가 없는 상황",
-        "시장이 폐쇄된 상황"
-      ],
-      "answer": "자금이 필요한 기업이 늘어난 상황",
+      "type": "OX",
+      "question": "기사에서 수요는 자금이 필요한 기업의 상황과 연결된다.",
+      "answer": "O",
       "explanation": "기사에서는 중소기업의 자금 필요가 늘어난 상황을 설명하고 있습니다."
+    },
+    {
+      "type": "OX",
+      "question": "뉴스 본문에 없는 내용도 퀴즈 정답 근거로 사용할 수 있다.",
+      "answer": "X",
+      "explanation": "퀴즈는 뉴스 본문에 있는 내용만 근거로 만들어야 합니다."
     }
   ]
 }
@@ -210,7 +204,7 @@ app/data/news.csv
   -> AI 서버가 뉴스 본문 전처리
   -> AI 서버가 GPT로 3줄 요약 생성
   -> AI 서버가 GPT로 경제 용어 설명 생성
-  -> AI 서버가 GPT로 OX/객관식 퀴즈 생성
+  -> AI 서버가 GPT로 OX 퀴즈 3문항 생성
   -> AI 서버가 JSON 반환
   -> 백엔드가 결과 저장 또는 프론트에 전달
 ```
@@ -257,7 +251,6 @@ Swagger 캡처가 필요하다면 이 화면에서 요청 body와 response body 
 - AI 서버 응답 생성에는 GPT 호출 시간이 포함되므로 일반 조회 API보다 응답 시간이 길 수 있다.
 - `category`는 선택값이다. 백엔드가 전달하지 않으면 AI 서버는 `term` 기준으로만 대표 뉴스를 찾는다.
 - `difficulty`는 생략 가능하며 기본값은 `BEGINNER`이다.
-- `quiz` 배열에는 `OX`와 `MULTIPLE_CHOICE` 문제가 포함될 수 있다.
-- 프론트에서 객관식 문제를 렌더링할 때는 `type === "MULTIPLE_CHOICE"`인 경우에만 `options`를 사용한다.
+- `quiz` 배열에는 `OX` 문제만 정확히 3개 포함된다.
 - `summary`는 3개 문장 배열로 내려오므로 프론트에서는 줄 단위 리스트로 표시하기 좋다.
 - `newsSummary`는 CSV에 있던 기존 요약이고, `summary`는 GPT가 새로 생성한 3줄 요약이다.
