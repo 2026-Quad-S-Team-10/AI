@@ -16,8 +16,8 @@ DEFAULT_DIFFICULTY = "BEGINNER"
 VALID_DIFFICULTIES = ("BEGINNER", "INTERMEDIATE", "ADVANCED")
 QUIZ_FIELD = "quiz"
 OX_TYPE = "OX"
-MULTIPLE_CHOICE_TYPE = "MULTIPLE_CHOICE"
 REQUIRED_QUIZ_FIELDS = ("type", "question", "answer", "explanation")
+REQUIRED_QUIZ_COUNT = 3
 
 DIFFICULTY_GUIDE = {
     "BEGINNER": "용어 뜻과 기사 핵심을 쉽게 묻는다.",
@@ -32,7 +32,7 @@ def generate_news_quiz(
     content: str,
     difficulty: str = DEFAULT_DIFFICULTY,
 ) -> list[dict[str, Any]]:
-    """Generate OX and multiple-choice quizzes from news content."""
+    """Generate OX quizzes from news content."""
     _validate_required_text(term, "term")
     _validate_required_text(title, "title")
     _validate_required_text(content, "content")
@@ -72,12 +72,9 @@ def build_quiz_prompt(
 - 과장된 표현을 쓰지 않는다.
 - 반드시 JSON만 반환한다.
 - 최상위 필드는 quiz 하나만 둔다.
-- quiz 배열에는 OX 문제 1개와 MULTIPLE_CHOICE 문제 1개를 포함한다.
+- quiz 배열에는 OX 문제만 정확히 3개 포함한다.
 - 각 문제에는 type, question, answer, explanation을 포함한다.
 - OX 문제의 answer는 반드시 "O" 또는 "X" 중 하나다.
-- MULTIPLE_CHOICE 문제는 options 배열을 포함하고, 보기는 정확히 4개만 만든다.
-- MULTIPLE_CHOICE 문제의 answer는 options 중 하나와 정확히 일치해야 한다.
-- 오답 보기는 너무 터무니없지 않게 만든다.
 - 해설은 경제 초급자도 이해할 수 있도록 쉽게 작성한다.
 - 마크다운 코드블록, 설명 문장, 번호 목록은 쓰지 않는다.
 
@@ -89,15 +86,20 @@ def build_quiz_prompt(
   "quiz": [
     {{
       "type": "OX",
-      "question": "O/X 문제 문장",
+      "question": "첫 번째 O/X 문제 문장",
       "answer": "O",
       "explanation": "쉬운 해설"
     }},
     {{
-      "type": "MULTIPLE_CHOICE",
-      "question": "객관식 문제 문장",
-      "options": ["보기 1", "보기 2", "보기 3", "보기 4"],
-      "answer": "보기 1",
+      "type": "OX",
+      "question": "두 번째 O/X 문제 문장",
+      "answer": "X",
+      "explanation": "쉬운 해설"
+    }},
+    {{
+      "type": "OX",
+      "question": "세 번째 O/X 문제 문장",
+      "answer": "O",
       "explanation": "쉬운 해설"
     }}
   ]
@@ -141,8 +143,12 @@ def validate_quiz_items(quiz: list[dict]) -> list[dict[str, Any]]:
     if not isinstance(quiz, list):
         raise ValueError("quiz must be a list.")
 
+    if len(quiz) != REQUIRED_QUIZ_COUNT:
+        raise ValueError(
+            f"quiz must include exactly {REQUIRED_QUIZ_COUNT} OX items."
+        )
+
     validated_quiz = []
-    seen_types = set()
 
     for index, item in enumerate(quiz, start=1):
         if not isinstance(item, dict):
@@ -153,22 +159,10 @@ def validate_quiz_items(quiz: list[dict]) -> list[dict[str, Any]]:
 
         if quiz_type == OX_TYPE:
             _validate_ox_quiz_item(normalized_item, index)
-        elif quiz_type == MULTIPLE_CHOICE_TYPE:
-            _validate_multiple_choice_quiz_item(normalized_item, index)
         else:
-            raise ValueError(
-                f"quiz item {index} has unsupported type: {quiz_type}"
-            )
+            raise ValueError(f"quiz item {index} must be OX type.")
 
-        seen_types.add(quiz_type)
         validated_quiz.append(normalized_item)
-
-    missing_types = {OX_TYPE, MULTIPLE_CHOICE_TYPE} - seen_types
-    if missing_types:
-        raise ValueError(
-            "quiz must include both OX and MULTIPLE_CHOICE items. "
-            f"Missing: {', '.join(sorted(missing_types))}"
-        )
 
     return validated_quiz
 
@@ -195,40 +189,6 @@ def _validate_common_quiz_fields(
 def _validate_ox_quiz_item(item: dict[str, Any], index: int) -> None:
     if item["answer"] not in {"O", "X"}:
         raise ValueError(f"OX quiz item {index} answer must be O or X.")
-
-
-def _validate_multiple_choice_quiz_item(
-    item: dict[str, Any],
-    index: int,
-) -> None:
-    options = item.get("options")
-    if not isinstance(options, list):
-        raise ValueError(
-            f"MULTIPLE_CHOICE quiz item {index} must include an options array."
-        )
-
-    cleaned_options = [
-        option.strip()
-        for option in options
-        if isinstance(option, str) and option.strip()
-    ]
-
-    if len(cleaned_options) != 4:
-        raise ValueError(
-            f"MULTIPLE_CHOICE quiz item {index} must include exactly 4 options."
-        )
-
-    if len(set(cleaned_options)) != 4:
-        raise ValueError(
-            f"MULTIPLE_CHOICE quiz item {index} options must be unique."
-        )
-
-    if item["answer"] not in cleaned_options:
-        raise ValueError(
-            f"MULTIPLE_CHOICE quiz item {index} answer must match one option."
-        )
-
-    item["options"] = cleaned_options
 
 
 def _normalize_difficulty(difficulty: str) -> str:
@@ -277,16 +237,16 @@ def print_quiz_parse_sample() -> None:
                     "explanation": "수요는 구매하거나 이용하려는 필요와 의사를 뜻합니다.",
                 },
                 {
-                    "type": "MULTIPLE_CHOICE",
-                    "question": "기사에서 자금 수요와 가장 관련 있는 내용은?",
-                    "options": [
-                        "중소기업의 자금 부담 완화",
-                        "소비자의 구매 감소",
-                        "세금 폐지",
-                        "수출 완전 중단",
-                    ],
-                    "answer": "중소기업의 자금 부담 완화",
-                    "explanation": "기사에서는 중소기업의 자금 조달 부담을 줄이는 금융 지원을 설명합니다.",
+                    "type": "OX",
+                    "question": "자금 수요는 기업의 금융 지원 필요와 관련될 수 있다.",
+                    "answer": "O",
+                    "explanation": "기사에서 자금 조달 부담과 금융 지원 필요를 다루기 때문입니다.",
+                },
+                {
+                    "type": "OX",
+                    "question": "뉴스 내용과 무관한 사실도 정답 근거로 사용할 수 있다.",
+                    "answer": "X",
+                    "explanation": "퀴즈는 뉴스 본문에 있는 내용만 근거로 만들어야 합니다.",
                 },
             ]
         },
