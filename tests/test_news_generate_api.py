@@ -2,10 +2,80 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.routers import news_generate_router
+from app.services import news_summary_service
 from app.services.news_quiz_service import parse_quiz_response
+from app.services.news_summary_service import parse_summary_response
 
 
 client = TestClient(app)
+
+
+def test_parse_summary_response_rejects_ellipsis_ending():
+    response_text = """
+    {
+      "summary": [
+        "은행은 중소기업 자금 부담을 줄이기 위한 프로그램을 운영합니다.",
+        "이 지원은 정책자금 이용 기업에 금리 우대 혜택을 제공한다는 내용입니다.",
+        "지역별 수요 편차와 접근성 문제가 변수로..."
+      ]
+    }
+    """
+
+    try:
+        parse_summary_response(response_text)
+    except ValueError as exc:
+        assert "must not end with an ellipsis" in str(exc)
+    else:
+        raise AssertionError("Expected ellipsis-ended summary to be rejected.")
+
+
+def test_generate_news_summary_uses_larger_token_limit_and_retries(monkeypatch):
+    responses = iter(
+        [
+            """
+            {
+              "summary": [
+                "은행은 중소기업 자금 부담을 줄이기 위한 프로그램을 운영합니다.",
+                "이 지원은 정책자금 이용 기업에 금리 우대 혜택을 제공한다는 내용입니다.",
+                "지역별 수요 편차와 접근성 문제가 변수로..."
+              ]
+            }
+            """,
+            """
+            {
+              "summary": [
+                "은행은 중소기업 자금 부담을 줄이기 위한 프로그램을 운영합니다.",
+                "이 지원은 정책자금 이용 기업에 금리 우대 혜택을 제공한다는 내용입니다.",
+                "지역별 수요 편차와 접근성 문제는 실제 지원 효과를 좌우할 수 있습니다."
+              ]
+            }
+            """,
+        ]
+    )
+    calls = []
+
+    def fake_call_openai_chat(prompt: str, max_output_tokens: int | None = None) -> str:
+        calls.append((prompt, max_output_tokens))
+        return next(responses)
+
+    monkeypatch.setattr(
+        news_summary_service,
+        "call_openai_chat",
+        fake_call_openai_chat,
+    )
+
+    summary = news_summary_service.generate_news_summary(
+        "수요",
+        "뉴스 제목",
+        "중소기업의 자금 수요가 늘고 있습니다. 은행은 금리 우대를 제공합니다.",
+    )
+
+    assert len(summary) == 3
+    assert not summary[-1].endswith("...")
+    assert len(calls) == 2
+    assert {max_output_tokens for _, max_output_tokens in calls} == {
+        news_summary_service.SUMMARY_MAX_OUTPUT_TOKENS
+    }
 
 
 def test_parse_quiz_response_allows_exactly_three_ox_items():

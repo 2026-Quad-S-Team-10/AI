@@ -12,6 +12,12 @@ except ModuleNotFoundError as exc:
 
 
 SUMMARY_SENTENCE_COUNT = 3
+SUMMARY_MAX_OUTPUT_TOKENS = 900
+SUMMARY_GENERATION_ATTEMPTS = 2
+SUMMARY_ELLIPSIS_ENDINGS = ("...", "…")
+SUMMARY_COMPLETE_SENTENCE_PATTERN = re.compile(
+    r"(?:[.!?。！？]|[다요죠함음됨임][.!?。！？]?)$"
+)
 
 
 def generate_news_summary(term: str, title: str, content: str) -> list[str]:
@@ -22,9 +28,27 @@ def generate_news_summary(term: str, title: str, content: str) -> list[str]:
 
     cleaned_content = clean_news_content(content)
     prompt = build_summary_prompt(term, title, cleaned_content)
-    response_text = call_openai_chat(prompt)
 
-    return parse_summary_response(response_text)
+    last_error: ValueError | None = None
+    for attempt_index in range(SUMMARY_GENERATION_ATTEMPTS):
+        attempt_prompt = prompt
+        if attempt_index > 0:
+            attempt_prompt = build_summary_retry_prompt(prompt)
+
+        response_text = call_openai_chat(
+            attempt_prompt,
+            max_output_tokens=SUMMARY_MAX_OUTPUT_TOKENS,
+        )
+
+        try:
+            return parse_summary_response(response_text)
+        except ValueError as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+
+    raise ValueError("Failed to generate a complete summary.")
 
 
 def build_summary_prompt(term: str, title: str, content: str) -> str:
@@ -45,6 +69,7 @@ def build_summary_prompt(term: str, title: str, content: str) -> str:
 - 반드시 JSON만 반환한다.
 - 반환 JSON은 summary 필드 하나만 가진다.
 - summary는 문자열 배열이며, 정확히 3개의 문장만 포함한다.
+- 각 문장은 말줄임표(... 또는 …)로 끝나지 않고 완전한 문장으로 끝난다.
 - 마크다운 코드블록, 설명 문장, 번호 목록은 쓰지 않는다.
 
 반환 형식:
@@ -58,6 +83,17 @@ def build_summary_prompt(term: str, title: str, content: str) -> str:
 
 뉴스 본문:
 {content.strip()}
+""".strip()
+
+
+def build_summary_retry_prompt(prompt: str) -> str:
+    """Add stricter completion instructions for a retry."""
+    return f"""
+{prompt}
+
+추가 조건:
+- 이전 응답처럼 중간에 끊긴 문장이나 말줄임표로 끝나는 문장은 절대 쓰지 않는다.
+- 세 문장 모두 끝까지 완성한 뒤 JSON을 닫는다.
 """.strip()
 
 
@@ -89,7 +125,22 @@ def parse_summary_response(response_text: str) -> list[str]:
             f"{SUMMARY_SENTENCE_COUNT} non-empty sentences."
         )
 
+    _validate_complete_summary_sentences(cleaned_summary)
+
     return cleaned_summary
+
+
+def _validate_complete_summary_sentences(summary: list[str]) -> None:
+    for index, sentence in enumerate(summary, start=1):
+        stripped_sentence = sentence.strip()
+        if stripped_sentence.endswith(SUMMARY_ELLIPSIS_ENDINGS):
+            raise ValueError(
+                f"summary sentence {index} must not end with an ellipsis."
+            )
+        if not SUMMARY_COMPLETE_SENTENCE_PATTERN.search(stripped_sentence):
+            raise ValueError(
+                f"summary sentence {index} must be a complete sentence."
+            )
 
 
 def _extract_json_text(response_text: str) -> str:
