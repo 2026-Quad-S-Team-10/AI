@@ -4,10 +4,12 @@ import os
 DEFAULT_OPENAI_MODEL = "gpt-5.2"
 
 
-def call_openai_chat(prompt: str) -> str:
+def call_openai_chat(prompt: str, max_output_tokens: int | None = None) -> str:
     """Call OpenAI Responses API and return the output text."""
     if not prompt or not prompt.strip():
         raise ValueError("prompt must not be empty.")
+    if max_output_tokens is not None and max_output_tokens <= 0:
+        raise ValueError("max_output_tokens must be greater than 0.")
 
     _load_dotenv_if_available()
 
@@ -26,10 +28,14 @@ def call_openai_chat(prompt: str) -> str:
     client = OpenAI(api_key=api_key)
 
     try:
-        response = client.responses.create(
-            model=model,
-            input=prompt,
-        )
+        request_kwargs = {
+            "model": model,
+            "input": prompt,
+        }
+        if max_output_tokens is not None:
+            request_kwargs["max_output_tokens"] = max_output_tokens
+
+        response = client.responses.create(**request_kwargs)
     except Exception as exc:
         raise RuntimeError(f"OpenAI API call failed: {exc}") from exc
 
